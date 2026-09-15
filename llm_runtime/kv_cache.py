@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 @dataclass
 class _Entry:
+    """一个请求的连续 KV 记录；``value`` 通常是 HF past_key_values。"""
+
     request_id: str
     num_tokens: int
     value: object | None = None
@@ -27,13 +29,16 @@ class ContinuousKVCache:
 
     @property
     def used_tokens(self) -> int:
+        """当前所有请求占用的逻辑 token 容量。"""
         return self._used_tokens
 
     @property
     def free_tokens(self) -> int:
+        """还可以接纳的逻辑 token 容量。"""
         return self.max_tokens - self._used_tokens
 
     def allocate(self, request_id: str, num_tokens: int, value: object | None = None) -> None:
+        """为新请求分配 prompt 对应的连续 KV 容量。"""
         if request_id in self._entries:
             raise ValueError(f"request {request_id!r} already has a KV allocation")
         if num_tokens < 0 or num_tokens > self.free_tokens:
@@ -42,7 +47,9 @@ class ContinuousKVCache:
         self._used_tokens += num_tokens
 
     def update(self, request_id: str, num_tokens: int, value: object | None = None) -> None:
+        """将已有请求扩容到新的序列长度，并更新 cache 对象。"""
         entry = self._entries[request_id]
+        # delta 可以为负数，允许上层在回滚或修正长度时归还容量。
         delta = num_tokens - entry.num_tokens
         if delta > self.free_tokens:
             raise MemoryError(f"KV cache capacity exceeded: requested {delta}, free {self.free_tokens}")
@@ -52,9 +59,11 @@ class ContinuousKVCache:
         self._used_tokens += delta
 
     def get(self, request_id: str) -> object | None:
+        """取出请求关联的模型原生 KV 对象。"""
         return self._entries[request_id].value
 
     def release(self, request_id: str) -> None:
+        """释放请求占用的容量；重复释放视为幂等操作。"""
         entry = self._entries.pop(request_id, None)
         if entry is not None:
             self._used_tokens -= entry.num_tokens
