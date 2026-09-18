@@ -6,10 +6,10 @@
 
 固定条件：
 
-- GPU：RTX 3060 Ti，SM86，8GB；
+- GPU：RTX 4070，SM89（Ada Lovelace），12GB；
 - CUDA + PyTorch + Triton；
 - 推荐 Linux 或 WSL2；
-- 模型优先使用 `Qwen2.5-0.5B-Instruct`，稳定后再测试 1.5B；
+- 模型优先使用 `Qwen2.5-0.5B-Instruct`，稳定后再测试 1.5B；在显存预算允许时再评估 3B；
 - 第一阶段 FP16 + greedy decode；
 - 暂不实现 beam search、speculative decoding 和分布式推理。
 
@@ -168,7 +168,7 @@ K/V: [num_layers, batch, kv_heads, max_seq, head_dim]
 
 ## 8. M5：Paged KV Cache
 
-第一版 block size 使用 16 tokens：
+第一版 block size 使用 16 tokens。RTX 4070 的 12GB 显存允许优先验证 1.5B BF16；3B 模型需要更保守的 batch/token budget，必要时启用 INT8 weight-only：
 
 ```text
 K/V pool:    [num_layers, 2, num_blocks, block_size, kv_heads, head_dim]

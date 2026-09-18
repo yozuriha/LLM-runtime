@@ -2,7 +2,7 @@
 
 ## 0. 项目边界
 
-目标是做一个单卡 NVIDIA GPU 上可运行、可测量、可解释的 LLM 推理 Runtime，优先适配 RTX 3060 Ti（SM86、8GB）和 0.5B–3B 级 Decoder-only 模型。第一阶段不追求替代 vLLM，而是围绕 prefill/decode、KV cache、batch 调度和关键 Triton kernel 形成一条完整闭环。
+目标是做一个单卡 NVIDIA GPU 上可运行、可测量、可解释的 LLM 推理 Runtime，统一适配 RTX 4070（SM89、12GB）和 0.5B–3B 级 Decoder-only 模型。第一阶段不追求替代 vLLM，而是围绕 prefill/decode、KV cache、batch 调度和关键 Triton kernel 形成一条完整闭环。
 
 推荐首个模型：Qwen2.5-0.5B/1.5B-Instruct 或同规模 Llama 模型。模型太大时，显存问题会掩盖 kernel 和调度优化效果。
 
@@ -164,7 +164,7 @@ batch 上限不应只看 request 数，建议同时限制：`max_batch_size`、`
 - warmup 后固定 shape/配置，避免把 Triton 首次编译时间算进推理延迟；
 - 对固定 batch/shape 可尝试 CUDA Graph，但动态 batch 和请求进出会增加 graph capture 管理复杂度，放到后期；
 - 记录 H2D、kernel、D2H 和 scheduler 时间，区分 GPU 计算瓶颈与 Python 调度瓶颈；
-- RTX 3060 Ti 只有 8GB，优先保证 KV 和权重不溢出，再追求更高 batch。
+- RTX 4070 有 12GB 显存，优先保证 1.5B BF16 的权重和 KV 不溢出；评估 3B 时降低 batch/token budget，必要时切换 INT8 weight-only。
 
 ## 7. 验证体系
 
@@ -259,4 +259,4 @@ FastAPI 流式输出、Prometheus 风格指标、vLLM/TensorRT-LLM 对照、固�
 5. weight-only INT8 和 W8A8 的误差、带宽和计算路径有什么差异？
 6. FlashAttention 如何通过 online softmax 避免写出完整 attention matrix？
 7. 如何证明端到端提升来自 kernel，而不是 batch、输入长度或 warmup 差异？
-8. 为什么 RTX 3060 Ti 上先做 0.5B–1.5B 模型，而不是直接上 7B？
+8. 为什么 RTX 4070 上先做 0.5B–1.5B 模型，而不是直接上 7B？
